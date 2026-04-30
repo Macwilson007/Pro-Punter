@@ -104,8 +104,8 @@ export default function BettingPage() {
                       {bet.status}
                     </span>
                   </td>
-                  <td className={bet.profit && bet.profit > 0 ? 'profit-positive' : bet.profit < 0 ? 'profit-negative' : ''}>
-                    {bet.profit ? formatCurrency(bet.profit) : '-'}
+                  <td className={(bet.profit ?? 0) > 0 ? 'profit-positive' : (bet.profit ?? 0) < 0 ? 'profit-negative' : ''}>
+                    {bet.profit !== undefined ? formatCurrency(bet.profit) : '-'}
                   </td>
                   <td>
                     {bet.status === 'pending' && (
