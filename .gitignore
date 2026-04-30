@@ -1,0 +1,29 @@
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+*.joblib
+models/trained/
+
+# Database
+*.db
+*.sqlite3
+data/*.csv
+data/raw/
+
+# System
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
