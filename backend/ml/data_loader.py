@@ -103,16 +103,16 @@ def _map_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def save_match_data(df: pd.DataFrame, league: str):
     """Save match data to database"""
-    from app.database import get_connection
+    from app.database import get_connection, get_cursor, execute_sql
     
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     inserted = 0
     for _, row in df.iterrows():
         try:
-            cursor.execute("""
-                INSERT OR IGNORE INTO matches 
+            execute_sql(cursor, """
+                INSERT INTO matches 
                 (league, league_id, season, date, home_team, away_team, 
                  home_goals, away_goals, xG_home, xG_away, 
                  odds_home, odds_draw, odds_away)
@@ -165,9 +165,9 @@ def populate_database():
     
     # Verify
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM matches")
-    total = cursor.fetchone()[0]
+    cursor = get_cursor(conn)
+    execute_sql(cursor, "SELECT COUNT(*) FROM matches")
+    total = cursor.fetchone()[0] if hasattr(cursor, 'fetchone') else list(cursor.fetchone().values())[0]
     conn.close()
     
     print(f"\nTotal matches in database: {total}")
@@ -189,7 +189,11 @@ def get_matches_for_training(league: str = None, min_games: int = 50) -> pd.Data
         query += " AND league = ?"
         params.append(league)
     
-    query += " ORDER BY date ASC"
+    # pd.read_sql_query handles its own placeholders if we use sqlalchemy, 
+    # but since we are using raw connections, we might need a workaround for different drivers.
+    # However, for read_sql_query, it's generally better to pass it a query it understands.
+    if settings.DATABASE_URL:
+        query = query.replace('?', '%s')
     
     df = pd.read_sql_query(query, conn, params=params if params else None)
     conn.close()
@@ -220,13 +224,14 @@ def get_league_teams(league: str) -> list:
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute("""
+    execute_sql(cursor, """
         SELECT DISTINCT home_team FROM matches WHERE league = ?
         UNION
         SELECT DISTINCT away_team FROM matches WHERE league = ?
     """, (league, league))
     
-    teams = [row[0] for row in cursor.fetchall()]
+    results = cursor.fetchall()
+    teams = [row[0] if isinstance(row, tuple) else list(row.values())[0] for row in results]
     conn.close()
     return teams
 
@@ -238,7 +243,7 @@ def get_recent_form(team: str, league: str, n: int = 5) -> dict:
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute("""
+    execute_sql(cursor, """
         SELECT home_team, away_team, home_goals, away_goals 
         FROM matches 
         WHERE league = ? AND (home_team = ? OR away_team = ?)
@@ -246,8 +251,17 @@ def get_recent_form(team: str, league: str, n: int = 5) -> dict:
         LIMIT ?
     """, (league, team, team, n))
     
-    matches = cursor.fetchall()
+    matches_raw = cursor.fetchall()
     conn.close()
+    
+    # Normalize match rows
+    matches = []
+    for row in matches_raw:
+        if isinstance(row, tuple):
+            matches.append(row)
+        else:
+            # Postgres dict row
+            matches.append((row['home_team'], row['away_team'], row['home_goals'], row['away_goals']))
     
     wins = 0
     draws = 0

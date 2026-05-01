@@ -27,6 +27,7 @@ export default function RootLayout({
             <div className="nav-links">
               <Link href="/" className="nav-link">Dashboard</Link>
               <Link href="/predictions" className="nav-link">Predictions</Link>
+              <Link href="/aviator" className="nav-link aviator-link">Aviator 🚀</Link>
               <Link href="/performance" className="nav-link">Performance</Link>
               <Link href="/betting" className="nav-link">Betting</Link>
               <Link href="/settings" className="nav-link">Settings</Link>
@@ -76,6 +77,10 @@ export default function RootLayout({
           }
           .nav-link:hover {
             color: var(--text-primary);
+          }
+          .aviator-link {
+            color: #ef4444 !important;
+            font-weight: 700 !important;
           }
           .main-content {
             max-width: 1280px;

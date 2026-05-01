@@ -79,6 +79,11 @@ export const api = {
   syncResults: (league?: string) => fetchAPI(`/api/predictions/sync-results${league ? `?league=${league}` : ''}`, {
     method: 'POST',
   }),
+  
+  getAviatorPrediction: (history: number[]) => fetchAPI('/api/aviator/predict', {
+    method: 'POST',
+    body: JSON.stringify({ history }),
+  }),
 };
 
 export const PLATFORMS = [

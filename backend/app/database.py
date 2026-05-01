@@ -1,5 +1,7 @@
 import sqlite3
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from pathlib import Path
 from app.config import settings
 
@@ -9,17 +11,42 @@ def get_db_path():
     return settings.DATABASE_PATH
 
 def get_connection():
+    if settings.DATABASE_URL:
+        # PostgreSQL (Supabase/Neon)
+        conn = psycopg2.connect(settings.DATABASE_URL)
+        return conn
+    
+    # Local SQLite
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_cursor(conn):
+    """Returns a cursor that works similarly across SQLite and Postgres"""
+    if settings.DATABASE_URL:
+        return conn.cursor(cursor_factory=RealDictCursor)
+    return conn.cursor()
+
+def execute_sql(cursor, query, params=None):
+    """Executes SQL with placeholder compatibility (? for SQLite, %s for Postgres)"""
+    if settings.DATABASE_URL:
+        query = query.replace('?', '%s')
+        # Also handle AUTOINCREMENT vs SERIAL if needed, but here we mostly care about queries
+        query = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
+    
+    if params:
+        cursor.execute(query, params)
+    else:
+        cursor.execute(query)
+    return cursor
+
 def init_db():
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         CREATE TABLE IF NOT EXISTS matches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             league TEXT NOT NULL,
             league_id TEXT,
             season TEXT,
@@ -37,9 +64,9 @@ def init_db():
         )
     """)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         CREATE TABLE IF NOT EXISTS predictions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             match_id INTEGER,
             league TEXT NOT NULL,
             league_id TEXT,
@@ -51,17 +78,16 @@ def init_db():
             confidence REAL,
             model_prob REAL,
             odds REAL,
-            value_bet BOOLEAN DEFAULT 0,
+            value_bet BOOLEAN DEFAULT FALSE,
             kelly_stake REAL,
             actual_result TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (match_id) REFERENCES matches (id)
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         CREATE TABLE IF NOT EXISTS bets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             prediction_id INTEGER,
             platform TEXT NOT NULL,
             market TEXT,
@@ -70,14 +96,13 @@ def init_db():
             odds REAL,
             status TEXT DEFAULT 'pending',
             profit REAL,
-            bet_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (prediction_id) REFERENCES predictions (id)
+            bet_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         CREATE TABLE IF NOT EXISTS models (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             league TEXT,
             market TEXT,
@@ -87,14 +112,14 @@ def init_db():
         )
     """)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT
         )
     """)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         CREATE TABLE IF NOT EXISTS cache (
             key TEXT PRIMARY KEY,
             data TEXT,

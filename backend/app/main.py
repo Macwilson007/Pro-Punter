@@ -6,13 +6,14 @@ from datetime import datetime, date, timedelta
 import pandas as pd
 
 from app.config import settings
-from app.database import get_connection, init_db
+from app.database import get_connection, init_db, get_cursor, execute_sql
 from api.football import api_football
 from api.leagues import LEAGUE_MAP, get_api_football_id
 from ml.data_loader import get_matches_for_training, get_recent_form, populate_database
 from ml.features import extract_features
 from ml.train import train_models
 from ml.predict import predict_match, get_best_prediction_for_match, calculate_value_bet
+from ml.aviator import aviator_predictor
 
 app = FastAPI(title="Pro Punter API", version="1.0.0")
 
@@ -44,6 +45,9 @@ class BetRecord(BaseModel):
 class TrainingRequest(BaseModel):
     league: Optional[str] = None
     market: str = "1x2"
+
+class AviatorRequest(BaseModel):
+    history: List[float] = []
 
 @app.get("/")
 async def root():
@@ -223,9 +227,9 @@ async def create_prediction(request: PredictionRequest):
     )
     
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
-    cursor.execute("""
+    execute_sql(cursor, """
         INSERT INTO predictions (league, home_team, away_team, predicted_outcome, market, confidence, model_prob)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -238,13 +242,24 @@ async def create_prediction(request: PredictionRequest):
         prediction.get("ensemble_prob", {}).get(prediction.get("prediction"), 0) if isinstance(prediction.get("ensemble_prob"), dict) else 0
     ))
     
-    prediction_id = cursor.lastrowid
+    # Get last row id (works for both sqlite and postgres)
+    if settings.DATABASE_URL:
+        cursor.execute("SELECT LASTVAL()")
+        prediction_id = cursor.fetchone()[0] if hasattr(cursor, 'fetchone') else cursor.fetchone()['lastval']
+    else:
+        prediction_id = cursor.lastrowid
+    
     conn.commit()
     conn.close()
     
     prediction["id"] = prediction_id
     
     return prediction
+
+@app.post("/api/aviator/predict")
+async def predict_aviator(request: AviatorRequest):
+    """Generate Aviator signal based on multiplier history"""
+    return aviator_predictor.calculate_signal(request.history)
 
 @app.get("/api/predictions/{league_id}")
 async def get_predictions_by_league(
@@ -318,7 +333,7 @@ async def sync_prediction_results(league: Optional[str] = Query(None)):
         query += " AND league = ?"
         params.append(league)
     
-    cursor.execute(query, params)
+    execute_sql(cursor, query, params)
     pending = cursor.fetchall()
     
     updated_count = 0
@@ -351,8 +366,8 @@ async def sync_prediction_results(league: Optional[str] = Query(None)):
                         away_goals = fixture_data["goals"].get("away")
                         
                         # Also update matches table for future training
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO matches (league, league_id, home_team, away_team, home_goals, away_goals, date)
+                        execute_sql(cursor, """
+                            INSERT INTO matches (league, league_id, home_team, away_team, home_goals, away_goals, date)
                             VALUES (?, ?, ?, ?, ?, ?, ?)
                         """, (
                             fixture_data["league"]["name"],
@@ -393,8 +408,8 @@ async def sync_prediction_results(league: Optional[str] = Query(None)):
                     else:
                         final_actual = actual
                     
-                    cursor.execute("UPDATE predictions SET actual_result = ? WHERE id = ?", (final_actual, pred_id))
-                    updated_count += 1
+                        execute_sql(cursor, "UPDATE predictions SET actual_result = ? WHERE id = ?", (final_actual, pred_id))
+                        updated_count += 1
                     
         except Exception as e:
             errors.append(f"Error updating fixture {fixture_id}: {str(e)}")
@@ -415,7 +430,7 @@ async def record_bet(bet: BetRecord):
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute("""
+    execute_sql(cursor, """
         INSERT INTO bets (prediction_id, platform, market, selection, stake, odds, status)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -428,7 +443,11 @@ async def record_bet(bet: BetRecord):
         bet.status
     ))
     
-    bet_id = cursor.lastrowid
+    if settings.DATABASE_URL:
+        cursor.execute("SELECT LASTVAL()")
+        bet_id = cursor.fetchone()[0] if hasattr(cursor, 'fetchone') else cursor.fetchone()['lastval']
+    else:
+        bet_id = cursor.lastrowid
     conn.commit()
     conn.close()
     
