@@ -1,10 +1,9 @@
-# Ignore local data and database files in Vercel deployment
-backend/data/*.db
-backend/data/raw/*.csv
-backend/__pycache__
-backend/.pytest_cache
-backend/models/*.pkl
-frontend/.next
+# Ignore heavy data
+*.db
+backend/
+api/data/
+api/models/trained/
 frontend/node_modules
+frontend/.next
 .env
 .env.local
