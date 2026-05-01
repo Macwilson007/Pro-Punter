@@ -1,9 +1,8 @@
-# Ignore heavy data
+# Ignore heavy data (paths are relative to frontend/ because it's the root directory)
 *.db
-backend/
 api/data/
 api/models/trained/
-frontend/node_modules
-frontend/.next
+node_modules
+.next
 .env
 .env.local
