@@ -4,7 +4,10 @@
     {
       "src": "backend/app/main.py",
       "use": "@vercel/python",
-      "config": { "runtime": "python3.11" }
+      "config": { 
+        "runtime": "python3.11",
+        "includeFiles": "backend/**"
+      }
     },
     {
       "src": "frontend/package.json",
@@ -20,8 +23,5 @@
       "src": "/(.*)",
       "dest": "frontend/$1"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "backend"
-  }
+  ]
 }
