@@ -6,7 +6,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, log_loss
 from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
+try:
+    from lightgbm import LGBMClassifier
+except ImportError:
+    LGBMClassifier = None
 from ml.features import get_feature_columns, prepare_training_data
 from ml.data_loader import get_matches_for_training
 
@@ -80,26 +83,29 @@ def train_models(league: str = None, market: str = "1x2") -> dict:
     joblib.dump(xgb, xgb_path)
     results['xgb_path'] = str(xgb_path)
     
-    lgbm = LGBMClassifier(
-        n_estimators=100,
-        max_depth=6,
-        learning_rate=0.1,
-        random_state=42,
-        verbose=-1
-    )
-    lgbm.fit(X_train, y_train)
-    lgbm_pred = lgbm.predict(X_test)
-    lgbm_prob = lgbm.predict_proba(X_test)
-    
-    if market in ["1x2", "euro_handicap"]:
-        results['lgbm_accuracy'] = accuracy_score(y_test, lgbm_pred)
-        results['lgbm_logloss'] = log_loss(y_test, lgbm_prob)
+    if LGBMClassifier is not None:
+        lgbm = LGBMClassifier(
+            n_estimators=100,
+            max_depth=6,
+            learning_rate=0.1,
+            random_state=42,
+            verbose=-1
+        )
+        lgbm.fit(X_train, y_train)
+        lgbm_pred = lgbm.predict(X_test)
+        lgbm_prob = lgbm.predict_proba(X_test)
+        
+        if market in ["1x2", "euro_handicap"]:
+            results['lgbm_accuracy'] = accuracy_score(y_test, lgbm_pred)
+            results['lgbm_logloss'] = log_loss(y_test, lgbm_prob)
+        else:
+            results['lgbm_accuracy'] = accuracy_score(y_test, lgbm_pred)
+        
+        lgbm_path = MODELS_DIR / f"lgbm_{market}_{league or 'all'}.joblib"
+        joblib.dump(lgbm, lgbm_path)
+        results['lgbm_path'] = str(lgbm_path)
     else:
-        results['lgbm_accuracy'] = accuracy_score(y_test, lgbm_pred)
-    
-    lgbm_path = MODELS_DIR / f"lgbm_{market}_{league or 'all'}.joblib"
-    joblib.dump(lgbm, lgbm_path)
-    results['lgbm_path'] = str(lgbm_path)
+        results['lgbm_status'] = "skipped (LightGBM not installed)"
     
     if market in ["1x2", "euro_handicap"]:
         joblib.dump(le, MODELS_DIR / f"encoder_{league or 'all'}_{market}.joblib")

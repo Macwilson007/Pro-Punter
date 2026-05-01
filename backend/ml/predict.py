@@ -27,7 +27,12 @@ def predict_match(
     
     # Try league-specific model first, then fall back to 'all'
     xgb_model = load_model("xgb", league, model_market) or load_model("xgb", None, model_market)
-    lgbm_model = load_model("lgbm", league, model_market) or load_model("lgbm", None, model_market)
+    
+    # LightGBM is optional in production to save space
+    try:
+        lgbm_model = load_model("lgbm", league, model_market) or load_model("lgbm", None, model_market)
+    except Exception:
+        lgbm_model = None
     
     if xgb_model is None and lgbm_model is None:
         return _feature_based_prediction(home_team, away_team, league, features, market)
@@ -59,8 +64,10 @@ def predict_match(
             ensemble_proba = (xgb_proba + lgbm_proba) / 2
         elif xgb_model:
             ensemble_proba = xgb_proba
-        else:
+        elif lgbm_model:
             ensemble_proba = lgbm_proba
+        else:
+            return _feature_based_prediction(home_team, away_team, league, features, market)
             
         results["ensemble_prob"] = {cls: float(p) for cls, p in zip(classes, ensemble_proba)}
         
