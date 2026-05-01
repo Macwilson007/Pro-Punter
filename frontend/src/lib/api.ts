@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// If NEXT_PUBLIC_API_URL is '/api', we don't want to add it again in the endpoints
+const API_URL = NEXT_PUBLIC_API_URL === '/api' ? '' : NEXT_PUBLIC_API_URL;
 
 async function fetchAPI(endpoint: string, options?: RequestInit) {
   const response = await fetch(`${API_URL}${endpoint}`, {
