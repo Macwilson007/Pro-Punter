@@ -12,7 +12,7 @@ from api.leagues import LEAGUE_MAP, get_api_football_id
 from ml.data_loader import get_matches_for_training, get_recent_form, populate_database
 from ml.features import extract_features
 from ml.train import train_models
-from ml.predict import predict_match, get_best_prediction_for_match, calculate_value_bet
+from ml.predict import predict_match, get_best_prediction_for_match, calculate_value_bet, _feature_based_prediction
 from ml.aviator import aviator_predictor
 
 app = FastAPI(title="Pro Punter API", version="1.0.0")

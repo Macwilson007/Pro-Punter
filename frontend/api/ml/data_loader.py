@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "raw"
+from app.config import settings
 
 # Column mapping from football-data.co.uk format to our app schema
 CSV_COLUMN_MAP = {
