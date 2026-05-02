@@ -1,6 +1,8 @@
-const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-// If NEXT_PUBLIC_API_URL is '/api', we don't want to add it again in the endpoints
-const API_URL = NEXT_PUBLIC_API_URL === '/api' ? '' : NEXT_PUBLIC_API_URL;
+const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:8000');
+
+// Handle the case where NEXT_PUBLIC_API_URL is '/api' to avoid double slashes or redundant prefixes
+const API_URL = NEXT_PUBLIC_API_URL.startsWith('/') ? '' : NEXT_PUBLIC_API_URL;
 
 async function fetchAPI(endpoint: string, options?: RequestInit) {
   const response = await fetch(`${API_URL}${endpoint}`, {
