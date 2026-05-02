@@ -1,7 +1,6 @@
-# Ignore heavy data (paths are relative to frontend/ because it's the root directory)
+# Ignore heavy backend data and Python API (too large for Vercel serverless)
 *.db
-api/data/
-api/models/trained/
+api/
 node_modules
 .next
 .env
