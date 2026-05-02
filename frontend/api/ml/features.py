@@ -34,10 +34,11 @@ def calculate_elo_rating(team: str, matches: pd.DataFrame, k: int = 32, initial:
 def _batch_elo_ratings(matches_df: pd.DataFrame, k: int = 32, initial: float = 1500) -> dict:
     """Calculate Elo ratings for ALL teams in one pass (O(n) instead of O(n²))"""
     ratings = {}
-    sorted_matches = matches_df.sort_values('date')
-    
-    # Store the rating at each match index so we can look it up per-row
     elo_at_match = {}
+    if len(matches_df) == 0 or 'date' not in matches_df.columns:
+        return ratings, elo_at_match
+    
+    sorted_matches = matches_df.sort_values('date')
     
     for idx, match in sorted_matches.iterrows():
         home = match['home_team']
@@ -93,10 +94,13 @@ def extract_features(
     
     # helper to get features for a team
     def get_team_stats(team_name: str, team_id: Optional[int], is_home: bool):
-        team_matches = matches_df[
-            (matches_df['home_team'] == team_name) | 
-            (matches_df['away_team'] == team_name)
-        ]
+        if len(matches_df) > 0 and 'home_team' in matches_df.columns:
+            team_matches = matches_df[
+                (matches_df['home_team'] == team_name) | 
+                (matches_df['away_team'] == team_name)
+            ]
+        else:
+            team_matches = pd.DataFrame()
         
         # If no local data, try live-sync from API if available
         if len(team_matches) == 0 and team_id and api_football:
@@ -182,10 +186,13 @@ def extract_features(
     features['goals_diff'] = features['home_avg_goals'] - features['away_avg_goals_conceded']
     
     # Head-to-head record
-    h2h = matches_df[
-        ((matches_df['home_team'] == home_team) & (matches_df['away_team'] == away_team)) |
-        ((matches_df['home_team'] == away_team) & (matches_df['away_team'] == home_team))
-    ].tail(5)
+    if len(matches_df) > 0 and 'home_team' in matches_df.columns and 'away_team' in matches_df.columns:
+        h2h = matches_df[
+            ((matches_df['home_team'] == home_team) & (matches_df['away_team'] == away_team)) |
+            ((matches_df['home_team'] == away_team) & (matches_df['away_team'] == home_team))
+        ].tail(5)
+    else:
+        h2h = pd.DataFrame()
     
     if len(h2h) > 0:
         home_wins = 0
@@ -219,11 +226,14 @@ def extract_features(
         features['h2h_home_win_rate'] = 0.33
         features['h2h_draw_rate'] = 0.33
     
-    league_matches = matches_df[matches_df['league'] == league]
-    if len(league_matches) > 0:
-        features['league_avg_goals'] = (
-            league_matches['home_goals'].mean() + league_matches['away_goals'].mean()
-        ) / 2
+    if len(matches_df) > 0 and 'league' in matches_df.columns:
+        league_matches = matches_df[matches_df['league'] == league]
+        if len(league_matches) > 0:
+            features['league_avg_goals'] = (
+                league_matches['home_goals'].mean() + league_matches['away_goals'].mean()
+            ) / 2
+        else:
+            features['league_avg_goals'] = 2.5
     else:
         features['league_avg_goals'] = 2.5
     
