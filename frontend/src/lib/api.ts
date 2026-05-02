@@ -1,8 +1,10 @@
 const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:8000');
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
+    ? 'https://pro-punter.onrender.com' 
+    : 'http://localhost:8000');
 
-// Handle the case where NEXT_PUBLIC_API_URL is '/api' to avoid double slashes or redundant prefixes
-const API_URL = NEXT_PUBLIC_API_URL.startsWith('/') ? '' : NEXT_PUBLIC_API_URL;
+const API_URL = NEXT_PUBLIC_API_URL;
+
 
 async function fetchAPI(endpoint: string, options?: RequestInit) {
   const response = await fetch(`${API_URL}${endpoint}`, {
