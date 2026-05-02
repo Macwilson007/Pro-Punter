@@ -144,7 +144,7 @@ def save_match_data(df: pd.DataFrame, league: str):
 
 def populate_database():
     """Load all CSV data and insert into the database"""
-    from app.database import get_connection
+    from app.database import get_connection, get_cursor, execute_sql
     
     print("\nPopulating database from CSV files...")
     
